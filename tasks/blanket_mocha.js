@@ -32,7 +32,7 @@ module.exports = function(grunt) {
 
   var reporter;
 
-    var status, coverageThreshold, modulePattern, modulePatternRegex;
+    var status, coverageThreshold, modulePattern, modulePatternRegex, excludedFiles;
     var totals = {
         totalLines: 0,
         coveredLines: 0,
@@ -56,7 +56,8 @@ module.exports = function(grunt) {
         var percent = (numCovered / numTotal) * 100;
         var pass = (percent >= threshold);
 
-        var result = pass ? "PASS" : "FAIL";
+        //If not passed, check if file is marked for manual exclusion. Else, fail it.
+        var result = pass ? "PASS" : (  excludedFiles.indexOf(name) === -1 /*File not found*/  ? "FAIL" : "SKIP");
 
         var percentDisplay = Math.floor(percent);
         if (percentDisplay < 10) {
@@ -73,6 +74,8 @@ module.exports = function(grunt) {
             if (printPassing || grunt.option('verbose')) {
                 grunt.log.writeln(msg.green);
             }
+        } else if (result ===  "SKIP"){ //Visually mark that these have been skipped.
+             grunt.log.writeln(msg.magenta);
         } else {
             ok = false;
             status.blanketFail++;
@@ -211,6 +214,10 @@ module.exports = function(grunt) {
         coverageThreshold = grunt.option('threshold') || options.threshold;
         var grep = grunt.option('grep');
         options.mocha = options.mocha || {};
+
+        //Get the array of excludedFiles
+        //Users should be able to define it in the command-line as an array or include it in the test file.
+        excludedFiles =  grunt.option('excludedFiles') || options.excludedFiles;
 
         if (grep) {
             options.mocha.grep = grep;

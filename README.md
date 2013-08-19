@@ -137,6 +137,18 @@ Default value: undefined
 The minimum percent coverage overall, averaged for all files.  An average coverage percentage below this 
 value will fail the build.Both passing and failing module statistics will be shown in the output.
 
+#### options.excludedFiles
+Type: `Array`
+Default value: undefined
+
+List filenames that need to be excluded. This will inform the Grunt Task to not mark these files as failed. The result will be printed as,
+SKIP: [..%] filename
+
+Example:
+`excludedFiles: [
+  "./src/my/file1.js",
+  "./src/my/project/file2.js"
+]` 
 
 ### Command Line Options
 
@@ -163,6 +175,12 @@ Override the globalThreshold specified in the Gruntfile.
 For example, if you wanted to test your files using a 90% global threshold, and the Gruntfile had a different global threshold specified, you could override it like so:
 
 `grunt --globalThreshold=90`
+
+#### excludedFiles
+
+List the files to be excluded as an array.  
+Example,
+`grunt --excludedFiles=["./src/my/file1.js", "./src/my/project/file2.js"]`
 
 #### grep
 
