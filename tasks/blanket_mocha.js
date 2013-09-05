@@ -217,7 +217,7 @@ module.exports = function(grunt) {
 
         //Get the array of excludedFiles
         //Users should be able to define it in the command-line as an array or include it in the test file.
-        excludedFiles =  grunt.option('excludedFiles') || options.excludedFiles;
+        excludedFiles =  grunt.option('excludedFiles') || options.excludedFiles || [];
 
         if (grep) {
             options.mocha.grep = grep;
