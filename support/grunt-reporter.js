@@ -25,7 +25,9 @@
             coverage: 0,
             hits: 0,
             misses: 0,
-            sloc: 0
+            sloc: 0,
+            data: data, // details passed out for reporting
+            source: data.source // details passed out for reporting, reported separately because stringify ignores special properties on array
         };
         for (var i = 0; i < data.source.length; i++) {
             var line = data.source[i];
@@ -40,8 +42,7 @@
         }
         ret.coverage = ret.hits / ret.sloc * 100;
 
-        return [ret.hits,ret.sloc];
-
+        return ret; // return whole object
     };
 
     // this function is invoked by blanket.js when the coverage data is ready.  it will
@@ -69,8 +70,8 @@
             sendMessage("blanket:fileDone", thisTotal, thisFile);
         }
 
-        sendMessage("blanket:done");
-
+        // return document's HTML
+        sendMessage("blanket:done",document.documentElement.innerHTML);
     };
 
     blanket.customReporter = reporter;

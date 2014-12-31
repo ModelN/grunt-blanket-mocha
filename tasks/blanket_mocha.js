@@ -24,7 +24,14 @@ var helpers       = require('../support/mocha-helpers');
 
 module.exports = function(grunt) {
 
-    var ok, totals, status, coverageThreshold, modulePattern, modulePatternRegex, excludedFiles, customThreshold, customModuleThreshold;
+    var ok = true;
+    var status, coverageThreshold, modulePattern, modulePatternRegex, excludedFiles, customThreshold, customModuleThreshold;
+    var totals = {
+        totalLines: 0,
+        coveredLines: 0,
+        moduleTotalStatements : {},
+        moduleTotalCoveredStatements : {}
+    };
     // External lib.
     var phantomjs = require('grunt-lib-phantomjs').init(grunt);
 
@@ -92,8 +99,13 @@ module.exports = function(grunt) {
         var listeners = {};
         var suites = [];
 
-        phantomjs.on('blanket:done', function() {
+        phantomjs.on('blanket:done', function(innerHTML) {
             phantomjs.halt();
+
+            // Trigger events for each runner listening
+            for (var name in listeners) {
+                listeners[name].emit.call(listeners[name], 'blanket:done');
+            }
         });
 
         phantomjs.on('blanket:fileDone', function(thisTotal, filename) {
@@ -102,8 +114,8 @@ module.exports = function(grunt) {
                 grunt.log.writeln();
             }
 
-            var coveredLines = thisTotal[0];
-            var totalLines = thisTotal[1];
+            var coveredLines = thisTotal.hits;
+            var totalLines = thisTotal.sloc;
 
             var threshold = coverageThreshold;
 
@@ -129,6 +141,11 @@ module.exports = function(grunt) {
 
                 totals.moduleTotalStatements[moduleName] += totalLines;
                 totals.moduleTotalCoveredStatements[moduleName] += coveredLines;
+            }
+
+            // Trigger events for each runner listening
+            for (var name in listeners) {
+                listeners[name].emit.call(listeners[name], 'blanket:fileDone', thisTotal, filename);
             }
         });
 
@@ -219,14 +236,6 @@ module.exports = function(grunt) {
             logErrors: false
         });
 
-        ok = true;
-        totals = {
-            totalLines: 0,
-            coveredLines: 0,
-            moduleTotalStatements : {},
-            moduleTotalCoveredStatements : {}
-        };
-
         status = {blanketTotal: 0, blanketPass: 0, blanketFail: 0};
         coverageThreshold = grunt.option('threshold') || options.threshold;
 
@@ -296,6 +305,7 @@ module.exports = function(grunt) {
 
         // Hijack console.log to capture reporter output
         var dest = this.data.dest;
+        var quiet = this.data.quiet;
         var output = [];
         var consoleLog = console.log;
         // Latest mocha xunit reporter sends to process.stdout instead of console
@@ -305,7 +315,10 @@ module.exports = function(grunt) {
         // Only hijack if we really need to
         if (dest) {
             console.log = function() {
-                consoleLog.apply(console, arguments);
+                if( !quiet ) {
+                    consoleLog.apply(console, arguments);
+                }
+
                 // FIXME: This breaks older versions of mocha
                 // processWrite.apply(process.stdout, arguments);
                 output.push(util.format.apply(util, arguments));
@@ -321,7 +334,7 @@ module.exports = function(grunt) {
                     phantomjsEventManager.add(url, runner);
 
                     // Clear runner event listener when test is over
-                    runner.on('end', function() {
+                    runner.on('blanket:done', function() {
                         phantomjsEventManager.remove(url);
                     });
 
