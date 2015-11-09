@@ -1,293 +1,109 @@
-# grunt-blanket-mocha
+A fork from [Grunt-blanket-mocha](https://github.com/GruntBlanketMocha/grunt-blanket-mocha) for automatically generating coverage data and save to file.
 
-# Seeking Maintainers!
+## Supports
 
-This project is no longer actively being maintained.  If you are interested in taking over as a maintainer/owner, please [apply here](https://github.com/ModelN/grunt-blanket-mocha/issues/39)
+[Istanbul](https://github.com/gotwarlost/istanbul) or [JSCover](https://github.com/tntim96/JSCover) or [JScoverage](https://www.npmjs.com/package/jscoverage)
 
-> Headless Blanket.js code coverage and Mocha testing via PhantomJS
+## Install
 
-## Wat?
-
-Other plugins look similar, but are different in that they:
-
-* Only test *server-side* code
-* Create *new instrumented copies* of your source code for coverage detection
-* Generate coverage reports in HTML or JSON formats requiring a separate step to parse and evaluate coverage
-* Do not *enforce* coverage thresholds, but just report on it
-
-This plugin, however:
-
-* Runs *client-side* mocha specs
-* Performs code coverage "live" using BlanketJS, without creating separate instrumented copies
-* Reports coverage info directly to the Grunt task
-* Will fail the build if minimum coverage thresholds are not defined
-
-## Parent Plugin
-
-This plugin is based on [kmiyashiro/grunt-mocha](https://github.com/kmiyashiro/grunt-mocha/tree/8e72249b1042a270641633a69725ccf63fa10259) v0.4.10 and supports all the
-configurations of that plugin as of that version.  Please see that repo for more options on configuration.
-
-Changes from the upstream plugin will be merged periodically.
-
-## Getting Started
-This plugin requires Grunt `~0.4.1`
-
-If you haven't used [Grunt](http://gruntjs.com/) before, be sure to check out the [Getting Started](http://gruntjs.com/getting-started) guide, as it explains how to create a [Gruntfile](http://gruntjs.com/sample-gruntfile) as well as install and use Grunt plugins. Once you're familiar with that process, you may install this plugin with this command:
-
-```shell
-npm install grunt-blanket-mocha --save-dev
+```bash
+npm i --save-dev grunt-mip
 ```
 
-Once the plugin has been installed, it may be enabled inside your Gruntfile with this line of JavaScript:
+## How to use
 
-```js
-grunt.loadNpmTasks('grunt-blanket-mocha');
+A base usage guideline can be found on [grunt-blanket-mocha](https://github.com/GruntBlanketMocha/grunt-blanket-mocha#readme)
+
+## Example
+
+**Step 1 . Install istanbul and grunt-mip and optional grunt-contrib-connect**
+
+```bash
+npm i -g istanbul
+npm i -D grunt-mip
+npm i -D grunt-contrib-connect
 ```
 
-## Dependencies
+**Step 2. Instrument your js files**
 
-* Blanket.js (tested with v1.1.6)
-* Mocha (tested with v2.0.1)
-
-## The "blanket_mocha" task
-
-### See Also
-
-This plugin is based off of grunt-contrib-mocha.  For general config options and examples, please see that repo.
-
-## Setup
-
-### Demo
-
-See the `example` and `example-requires` directories for a fully-working examples of the setup, including some of the scaffolding required to get all the pieces to fit together.  The `README` in that directory will walk you through it.
-
-### Gruntfile
-
-In your project's Gruntfile, add a section named `blanket_mocha` to the data object passed into `grunt.initConfig()`.
-
-```js
-grunt.initConfig({
-  blanket_mocha: {
-    test: {
-      src: ['specs/test.html'],
-      options : {
-          threshold : 70
-      }
-    }
-  }
-})
+```bash
+istanbul instrument test/index.js > test/index.cov.js
+istanbul instrument test/plugin.js > test/plugin.cov.js
 ```
 
-Use the `all` param to specify where your mocha browser spec HTML file lives.
-This works the same way as it does in the base `grunt-mocha` plugin.
+**Step 3 . Config gruntfile**
 
-NOTE: Be sure to include the blanketJS script tag in your test html file
+```javascript
+// Gruntfile.js
+module.exports = function(grunt) {
+	// Project configuration.
+	grunt.initConfig({
+		mip: {
+			all: {
+				options: {
+					run: false,
+					urls: [
+						'http://localhost/test/'
+					],
+					timeout: 50000,
+					reporter: 'Dot'
+				}
+			}
+		},
+		connect: {
+			all: {
+				options: {
+					port: 80,
+					base: '.',
+				}
+			}
+		}
+	});
 
-### Blanket Adapter
+	// Load plugins
+	grunt.loadNpmTasks('grunt-contrib-connect');
+	grunt.loadNpmTasks('grunt-mip');
 
-To allow Blanket to communicate with the parent Grunt process, add this snippet in your test HTML, after all the
-other scripts:
-
-```html
-<script>
-    if (window.PHANTOMJS) {
-        blanket.options("reporter", "../node_modules/grunt-blanket-mocha/support/grunt-reporter.js");
-    }
-</script>
+	// Task to run tests
+	grunt.registerTask('test', ['connect', 'mip']);
 ```
 
-NOTE: The above path is assuming that the specs are being run from a directory one deeper than the root directory.
-Adjust the path accordingly.
+**Step 4. Run your test(s) then convert coverage.json to html or lcov ( or something else)**
 
-NOTE 2: The conditional `if (window.PHANTOMJS)` statement is there because of the hacky way that messages are passed
-between an HTML page and the PhantomJS process (using alerts).  Without this condition, you would get bombarded
-with alert messages in your in-browser mocha report.
 
-### BlanketJS HTML Report
-
-If you want to see blanketJS coverage reports in the browser as well (useful for visually scanning which lines have
-coverage and which do not) include this snippet it in your test html blanket and mocha.
-
-```html
-<script type="text/javascript" src="../node_modules/grunt-blanket-mocha/support/mocha-blanket.js"></script>
+```bash
+grunt test && istanbul report --root coverage lcov
 ```
 
-NOTE: The above path is assuming that the specs are being run from a directory one deeper than the root directory.
-Adjust the path accordingly.
+As you should notice, after running this task, a ```coverage``` folder will be created in the root folder, contains a file named ```coverage.json```. This file contains coverage object generated by [Istanbul](https://github.com/gotwarlost/istanbul) or [JSCover](https://github.com/tntim96/JSCover) or [JScoverage](https://www.npmjs.com/package/jscoverage)
 
-### Options
+You should used **only one** in mentioned 3 tools in a test case because you don't want to mix their responses :)
 
-#### options.threshold
-Type: `Number`
-Default value: `60`
+If you want to change coverage tool, please delete the ```coverage``` folder before running a new test
 
-The minimum percent coverage per-file.  Any files that have coverage below this threshold will fail the build.  By default, only the failing files will be output in the console.  To show passing files as well, use the grunt `--verbose` option.
 
-#### options.moduleThreshold
-Type: `Number`
-Default value: undefined
+**NOTE :** This tool is designed to merge new reponses from test to test, it means :
 
-The minimum percent coverage per-module.  Any modules that have coverage below this threshold will fail the build.  Both passing and failing module statistics will be shown in the output.
+```bash
+When you run a test on http://localhost/test.html the first time, its results is saved on coverage.json file
 
-This option requires that the `modulePattern` property is also set (see below).
-
-#### options.modulePattern
-Type: `RegEx`
-Default value: undefined
-
-A regular expression defining how to extract a module name from the path of a covered file.  The regular expression should include
-a single parenthetical expression which will be matched as the module name.  For example, to define the module name as the text
-in between the first two slashes, you could use:
-
-```
-modulePattern: "./(.*?)/"
+Then you run a new test on http://localhost/another-test.html, its results will be merged to the old results and saved to coverage.json
 ```
 
-#### options.globalThreshold
-Type: `Number`
-Default value: undefined
-
-The minimum percent coverage overall, averaged for all files.  An average coverage percentage below this
-value will fail the build.Both passing and failing module statistics will be shown in the output.
-
-#### options.excludedFiles
-Type: `Array`
-Default value: undefined
-
-List filenames that need to be excluded. This will inform the Grunt Task to not mark these files as failed. The result will be printed as,
-SKIP: [..%] filename
-
-Example:
-
-```js
-excludedFiles: [
-  "./src/my/file1.js",
-  "./src/my/project/file2.js"
-]
-```
-
-#### options.customThreshold
-Type: `Object`
-Default value: undefined
-
-List filenames that should have their own special threshold.  This is useful for the case when there are a few files with poor
-coverage in your project, and you don't want them to hold you back from enforcing an overall high threshold.  Or you may have
-certain files that you want to hold to a higher standard than others, using a higher threshold.
-
-Example:
-
-```js
-customThreshold: {
-  "./src/my/file1.js" : 33,
-  "./src/my/project/file2.js" : 45
-}
-```
-
-#### options.customModuleThreshold
-Type: `Object`
-Default value: undefined
-
-List module names that should have their own special threshold.  This is useful for the case when there are a few modules with poor
-coverage in your project, and you don't want them to hold you back from enforcing an overall high threshold. Or you may have
-certain modules that you want to hold to a higher standard than others, using a higher threshold.
-
-Example:
-
-```js
-customModuleThreshold: {
-  "users" : 60,
-  "security" : 90
-}
-```
+So if you don't intend to merge their results, you should delete or backup the ```coverage.json``` file somewhere outside the ```coverage``` folder
 
 
-### Command Line Options
+## Contribute
 
-#### threshold
+grunt-mip is released under MIT license, feel free to contribute or provide a bug fix
 
-Override the threshold specified in the Gruntfile.
+Here is some simple steps
 
-For example, if you wanted to test your files using a 90% threshold, and the Gruntfile had a different threshold specified, you could override it like so:
+1. Fork, then clone the repo at git@github.com:your-username/grunt-mip.git
 
-`grunt --threshold=90`
+2. Push to your fork and submit a [pull request](https://github.com/zudd/grunt-mip/compare/)
 
-#### moduleThreshold
+3. Write a good commit message
 
-Override the moduleThreshold specified in the Gruntfile.
 
-For example, if you wanted to test your files using a 90% module threshold, and the Gruntfile had a different module threshold specified, you could override it like so:
-
-`grunt --moduleThreshold=90`
-
-#### globalThreshold
-
-Override the globalThreshold specified in the Gruntfile.
-
-For example, if you wanted to test your files using a 90% global threshold, and the Gruntfile had a different global threshold specified, you could override it like so:
-
-`grunt --globalThreshold=90`
-
-#### excludedFiles
-
-List the files to be excluded as an array.
-Example,
-`grunt --excludedFiles=["./src/my/file1.js", "./src/my/project/file2.js"]`
-
-#### grep
-
-Only run test specs that match a certain pattern.
-
-For example, if you only wanted to run specs that match the word "login" you could run:
-
-`grunt --grep="login"`
-
-## Contributing
-In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Lint and test your code using [Grunt](http://gruntjs.com/).
-
-## Release History
-
-## 0.4.1
-*Released 17 June 2014*
-
-* Better filename matching, and other misc fixes.
-
-## 0.4.0
-*Released 2 February 2014*
-
-* Pull upstream changes from grunt-mocha 0.4.10
-
-### 0.3.4
-*Released 31 January 2014*
-
-* Fix compatibility with latest mocha versions, and some reporter issues
-
-### 0.3.3
-*Released 12 November 2013*
-
-* Bump dependencies for PhantomJS, Mocha, JSHint
-
-### 0.3.2
-*Released 30 October 2013*
-
-* Add ability to define custom thresholds for files and modules.
-* Fix bug where module thresholds were not being reported or enforced correctly.
-
-### 0.3.1
-*Released 6 September 2013*
-
-* Fix keyword listing so the plugin shows up in Grunt plugins repo
-
-### 0.3.0
-*Released 25 August 2013*
-
-* Add ability to manually exclude files(shows as 'skipped')
-
-### 0.2.0
-*Released 1 August 2013*
-
-* Fix issue where failing mocha test did not fail the build
-
-### 0.1.3
-*Released 31 July 2013*
-
-* Initial release
+Enjoy.

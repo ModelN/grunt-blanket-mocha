@@ -1,6 +1,7 @@
 /*
  * Is injected into the spec runner file
-
+ *
+ * Copyright (c) 2015 Hung Luu
  * Copyright (c) 2012 Kelly Miyashiro
  * Copyright (c) 2012 "Cowboy" Ben Alman
  * Licensed under the MIT license.
@@ -10,124 +11,128 @@
 /*global mocha:true, alert:true, window:true */
 
 (function() {
-    // Send messages to the parent phantom.js process via alert! Good times!!
-    function sendMessage() {
-      var args = [].slice.call(arguments);
-      alert(JSON.stringify(args));
-    }
+	// Send messages to the parent phantom.js process via alert! Good times!!
+	function sendMessage() {
+		var args = [].slice.call(arguments);
+		alert(JSON.stringify(args));
+	}
 
-    // Create a listener who'll bubble events from Phantomjs to Grunt
-    function createGruntListener(ev, runner) {
+	// Create a listener who'll bubble events from Phantomjs to Grunt
+	function createGruntListener(ev, runner) {
 
-      runner.on(ev, function(test, err) {
-        var data = {
-          err: err
-        };
+		runner.on(ev, function(test, err) {
+		var data = {
+			err: err
+		};
 
-        if (test) {
-          data.title = test.title;
-          data.fullTitle = test.fullTitle();
-          data.state = test.state;
-          data.duration = test.duration;
-          data.slow = test.slow;
-        }
+		if (test) {
+			data.title = test.title;
+			data.fullTitle = test.fullTitle();
+			data.state = test.state;
+			data.duration = test.duration;
+			data.slow = test.slow;
+		}
 
-        sendMessage('mocha.' + ev, data);
+		sendMessage('mocha.' + ev, data);
 
-      });
-    }
+		});
+	}
 
-    // 1.4.2 moved reporters to Mocha instead of mocha
-    var mochaInstance = window.Mocha || window.mocha;
-    
-    function createBlanketReporter(runner) {
-        runner.on('start', function() {
-            window.blanket.setupCoverage();
-        });
+	// 1.4.2 moved reporters to Mocha instead of mocha
+	var mochaInstance = window.Mocha || window.mocha;
 
-        runner.on('end', function() {
-            window.blanket.onTestsDone();
-        });
+	function createBlanketReporter(runner) {
+		runner.on('start', function() {
+			window.blanket.setupCoverage();
+		});
 
-        runner.on('suite', function() {
-            window.blanket.onModuleStart();
-        });
+		runner.on('end', function() {
+			// added
+			// Send coverage data
+			var covData = window.__coverage__ || window._$jscoverage;
+			sendMessage('coverage:save', covData);
+			window.blanket.onTestsDone();
+		});
 
-        runner.on('test', function() {
-            window.blanket.onTestStart();
-        });
+		runner.on('suite', function() {
+			window.blanket.onModuleStart();
+		});
 
-        runner.on('test end', function(test) {
-            window.blanket.onTestDone(test.parent.tests.length, test.state === 'passed');
-        });
+		runner.on('test', function() {
+			window.blanket.onTestStart();
+		});
 
-        //I dont know why these became global leaks
-        runner.globals(['stats', 'failures', 'runner']);
-    }
+		runner.on('test end', function(test) {
+			window.blanket.onTestDone(test.parent.tests.length, test.state === 'passed');
+		});
 
-    // 1.4.2 moved reporters to Mocha instead of mocha
-    var mochaInstance = window.Mocha || window.mocha;
+		//I dont know why these became global leaks
+		runner.globals(['stats', 'failures', 'runner']);
+	}
 
-    var GruntReporter = function(runner){
+	// 1.4.2 moved reporters to Mocha instead of mocha
+	var mochaInstance = window.Mocha || window.mocha;
 
-      if (!mochaInstance) {
-        throw new Error('Mocha was not found, make sure you include Mocha in your HTML spec file.');
-      }
+	var GruntReporter = function(runner){
 
-      // Setup HTML reporter to output data on the screen
-      mochaInstance.reporters.HTML.call(this, runner);
+		if (!mochaInstance) {
+			throw new Error('Mocha was not found, make sure you include Mocha in your HTML spec file.');
+		}
 
-      // Create a Grunt listener for each Mocha events
-      var events = [
-        'start',
-        'test',
-        'test end',
-        'suite',
-        'suite end',
-        'fail',
-        'pass',
-        'pending',
-        'end'
-      ];
+		// Setup HTML reporter to output data on the screen
+		mochaInstance.reporters.HTML.call(this, runner);
 
-      for (var i = 0; i < events.length; i++) {
-        createGruntListener(events[i], runner);
-      }
+		// Create a Grunt listener for each Mocha events
+		var events = [
+			'start',
+			'test',
+			'test end',
+			'suite',
+			'suite end',
+			'fail',
+			'pass',
+			'pending',
+			'end'
+		];
 
-      createBlanketReporter(runner);
+		for (var i = 0; i < events.length; i++) {
+			createGruntListener(events[i], runner);
+		}
 
-    };
+		createBlanketReporter(runner);
 
-    var Klass = function () {};
-    Klass.prototype = mochaInstance.reporters.HTML.prototype;
-    GruntReporter.prototype = new Klass();
+	};
 
-    var options = window.PHANTOMJS;
-    // Default mocha options
-    var config = {
-          ui: 'bdd',
-          ignoreLeaks: true,
-          reporter: GruntReporter
-        },
-        run = options.run || false,
-        key;
+	var Klass = function () {};
+	Klass.prototype = mochaInstance.reporters.HTML.prototype;
+	GruntReporter.prototype = new Klass();
 
-    if (options) {
-      // If options is a string, assume it is to set the UI (bdd/tdd etc)
-      if (typeof options === "string") {
-        config.ui = options;
-      } else {
-        // Extend defaults with passed options
-        for (key in options.mocha) {
-          config[key] = options.mocha[key];
-        }
-      }
-    }
+	var options = window.PHANTOMJS;
+	// Default mocha options
+	var config = {
+			ui: 'bdd',
+			ignoreLeaks: true,
+			reporter: GruntReporter
+		},
+		run = options.run || false,
+		key;
 
-    mocha.setup(config);
+	if (options) {
+		// If options is a string, assume it is to set the UI (bdd/tdd etc)
+		if (typeof options === "string") {
+		config.ui = options;
+		} else {
+		// Extend defaults with passed options
+		for (key in options.mocha) {
+			config[key] = options.mocha[key];
+		}
+		}
+	}
 
-    // task option `run`, automatically runs mocha for grunt only
-    if (run) {
-      mocha.run();
-    }
+	mocha.setup(config);
+
+	// task option `run`, automatically runs mocha for grunt only
+	if (run) {
+		mocha.run();
+	}
 }());
