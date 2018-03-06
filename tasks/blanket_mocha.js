@@ -351,7 +351,7 @@ module.exports = function(grunt) {
                     if (Reporter === null) {
                         grunt.fatal('Specified reporter is unknown or unresolvable: ' + options.reporter);
                     }
-                    reporter = new Reporter(runner);
+                    reporter = new Reporter(runner, options);
 
                     // Launch PhantomJS.
                     phantomjs.spawn(url, {
